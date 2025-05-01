@@ -13,8 +13,6 @@
         #message-form { display: flex; }
         #message-form input { flex: 1; padding: 10px; }
         #message-form button { padding: 10px; }
-        .message { margin-bottom: 10px; }
-        .delete-btn { cursor: pointer; color: red; font-size: 14px; margin-left: 10px; }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
 </head>
@@ -33,23 +31,19 @@
             <button type="submit">Send</button>
         </form>
     </div>
-
     <script>
         const gun = Gun({
             peers: [
                 'https://gun-manhattan.herokuapp.com/gun'
             ]
         });
-
+    
         let currentRoom = null;
         let roomRef = null;
         let seenMessages = {};
-
+    
         let localServers = JSON.parse(localStorage.getItem('chatServers')) || {};
-
-        // Zufällige Benutzer-ID (für Demo-Zwecke)
-        const userId = 'user_' + Math.floor(Math.random() * 1000); // Für Testzwecke
-
+    
         function renderServers() {
             const serversDiv = document.getElementById('servers');
             serversDiv.innerHTML = '';
@@ -61,7 +55,7 @@
                 serversDiv.appendChild(div);
             }
         }
-
+    
         function createServer() {
             const name = document.getElementById('new-server-name').value.trim();
             if (!name || localServers[name]) return alert('Invalid or existing server name.');
@@ -70,73 +64,57 @@
             renderServers();
             document.getElementById('new-server-name').value = '';
         }
-
+    
         function joinServer(name) {
             currentRoom = name;
             document.getElementById('chat-title').textContent = 'Chatting in: ' + name;
             document.getElementById('messages').innerHTML = '';
-
+    
             if (roomRef) {
                 roomRef.off();
             }
-
+    
             seenMessages = {};
-
+    
             roomRef = gun.get('rooms').get(name);
-
+    
             roomRef.map().on((data, id) => {
-                // Nur Nachrichten für den aktuellen Raum anzeigen
-                if (currentRoom !== name) return;
+                // WICHTIG: Prüfe, ob die Nachricht noch zu dem aktuellen Raum gehört
+                if (currentRoom !== name) return;  // Raum gewechselt? Ignorieren.
                 if (data && data.text && !seenMessages[id]) {
                     seenMessages[id] = true;
-                    addMessage(data.text, id, data.userId); // User-ID zum Löschen prüfen
+                    addMessage(data.text);
                 }
             });
         }
-
-        function addMessage(msg, id, userId) {
+    
+        function addMessage(msg) {
             const p = document.createElement('p');
-            p.className = 'message';
             p.textContent = msg;
-
-            // Löschbutton nur für eigene Nachrichten
-            if (userId === userId) {
-                const deleteBtn = document.createElement('span');
-                deleteBtn.className = 'delete-btn';
-                deleteBtn.textContent = 'Delete';
-                deleteBtn.onclick = () => deleteMessage(id);
-                p.appendChild(deleteBtn);
-            }
-
             const messagesDiv = document.getElementById('messages');
             messagesDiv.appendChild(p);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
-
+    
         function sendMessage(e) {
             e.preventDefault();
             if (!currentRoom) return alert('Select a server first.');
             const input = document.getElementById('message-input');
             const message = input.value.trim();
             if (!message) return;
-
-            // Nachricht zusammen mit Benutzer-ID speichern
-            roomRef.set({ text: message, timestamp: Gun.state(), userId: userId });
+            roomRef.set({ text: message, timestamp: Gun.state() });
             input.value = '';
         }
-
-        function deleteMessage(id) {
-            // Nachricht aus Gun.js löschen
-            roomRef.get(id).put(null); // Löschen der Nachricht
-        }
-
+    
         function saveServers() {
             localStorage.setItem('chatServers', JSON.stringify(localServers));
         }
-
+    
         // Initialize
         renderServers();
     </script>
+    
 </body>
 </html>
+
 
